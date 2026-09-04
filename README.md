@@ -20,8 +20,10 @@ tubs will show a different subset of the channels listed below.
 
 ## Discovery
 
-This binding does not support auto-discovery. Things must be added manually with the host/IP address
-of the Balboa Wi-Fi module.
+The binding can discover Balboa Wi-Fi modules on the local network: it broadcasts a UDP discovery
+request on port 30303, which every reachable module answers directly. Discovery only finds modules on
+the same local network segment as the openHAB server. Things can also still be added manually with the
+host/IP address of the Balboa Wi-Fi module.
 
 ## Thing Configuration
 
