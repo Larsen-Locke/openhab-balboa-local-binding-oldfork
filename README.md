@@ -29,7 +29,7 @@ of the Balboa Wi-Fi module.
 |---------------------|---------|----------|---------|----------------------------------------------------------------------|
 | `host`              | text    | yes      | -       | Hostname or IP address of the Balboa Wi-Fi module                   |
 | `port`              | integer | yes      | 4257    | TCP port of the Balboa Wi-Fi module                                  |
-| `reconnectInterval` | integer | yes      | 30      | Seconds to wait before attempting to reconnect after a disconnect    |
+| `reconnectInterval` | integer | yes      | 30      | Seconds before the first reconnect attempt after a disconnect; further attempts back off exponentially, capped at 10 minutes |
 | `pollingInterval`   | integer | yes      | 60      | Seconds between polling requests sent to keep the connection alive   |
 
 ### `balboa.things` Example

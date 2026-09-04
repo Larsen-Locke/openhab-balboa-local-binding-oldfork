@@ -14,6 +14,7 @@ package org.openhab.binding.balboa.internal;
 
 import java.util.HashMap;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import javax.measure.quantity.Temperature;
@@ -71,8 +72,15 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
      *
      */
     private class ReconnectJob implements Runnable {
+        // Reconnect delays grow exponentially from config.reconnectInterval, capped at this many seconds, so a
+        // long-lasting outage does not keep the binding hammering the unit (or the network) forever.
+        private static final long MAX_RECONNECT_DELAY_SECONDS = 600;
+        // The backoff exponent is also capped, mainly to avoid overflow for unusual configurations.
+        private static final int MAX_BACKOFF_SHIFT = 8;
+
         private @Nullable ScheduledFuture<?> job;
         private boolean enabled = false;
+        private int attempt = 0;
 
         /**
          * Enables the reconnection mechanism
@@ -97,12 +105,27 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
         }
 
         /**
-         * Schedules a reconnect if enabled and not already pending.
+         * Resets the backoff so that the next reconnect attempt (if any) starts again at
+         * {@code config.reconnectInterval}. Called once the connection is confirmed to be online again.
+         */
+        public synchronized void resetBackoff() {
+            attempt = 0;
+        }
+
+        /**
+         * Schedules a reconnect if enabled and not already pending. Successive attempts back off exponentially
+         * from {@code config.reconnectInterval} (capped at {@link #MAX_RECONNECT_DELAY_SECONDS}), with a little
+         * random jitter added so repeated failures do not keep retrying in lockstep.
          */
         public synchronized void schedule() {
             if (enabled && job == null && config.reconnectInterval > 0) {
-                job = scheduler.schedule(this, config.reconnectInterval, TimeUnit.SECONDS);
-                logger.debug("Reconnection attempt in {} seconds", config.reconnectInterval);
+                long delay = Math.min(config.reconnectInterval * (1L << Math.min(attempt, MAX_BACKOFF_SHIFT)),
+                        MAX_RECONNECT_DELAY_SECONDS);
+                delay += ThreadLocalRandom.current().nextInt(0, 3);
+                attempt++;
+
+                job = scheduler.schedule(this, delay, TimeUnit.SECONDS);
+                logger.debug("Reconnection attempt {} in {} seconds", attempt, delay);
             }
         }
 
@@ -297,6 +320,8 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
             case ONLINE:
                 updateStatus(ThingStatus.ONLINE);
                 logger.info("Balboa Protocol is Online");
+                // Reset the reconnect backoff now that the connection is confirmed to be working again
+                reconnectJob.resetBackoff();
                 // Start sending poll messages
                 pollingJob.start();
                 break;
