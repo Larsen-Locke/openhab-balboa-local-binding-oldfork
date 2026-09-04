@@ -53,6 +53,10 @@ public class BalboaProtocol {
     private Reader reader = new Reader();
     private boolean babble = false;
     private Status status = Status.INITIAL;
+    // Timestamp of the last time data was received from the unit. A TCP peer that disappears without sending a
+    // FIN/RST (e.g. its Wi-Fi module is powered off) is not detected by the socket itself: reads simply never
+    // complete. Callers use this to notice such a "silently dead" connection and force a reconnect.
+    private volatile long lastActivity = System.currentTimeMillis();
 
     /**
      * Constructor for {@link BalboaProtocol} with a given {@link BalboaProtocol.Handler}
@@ -365,6 +369,9 @@ public class BalboaProtocol {
                 return;
             }
 
+            // Any successful read, however small, proves the unit is still there.
+            lastActivity = System.currentTimeMillis();
+
             // Limit the buffer at the end of the read and rewind to the start of the buffer.
             readBuffer.limit(readBuffer.position());
             readBuffer.rewind();
@@ -496,6 +503,16 @@ public class BalboaProtocol {
     }
 
     /**
+     * Returns how long it has been since data was last received from the unit.
+     *
+     * @return milliseconds since the last successful read, measured from when the current (or most recent) connect
+     *         attempt was started if nothing has been received yet.
+     */
+    public long getMillisSinceLastActivity() {
+        return System.currentTimeMillis() - lastActivity;
+    }
+
+    /**
      * Connects a {@link BalboaProtocol} on the default port (4257)
      *
      * @param host the hostname or ip address of the control unit.
@@ -526,6 +543,9 @@ public class BalboaProtocol {
         if (socket != null) {
             disconnect();
         }
+
+        // Do not count the time spent disconnected against the freshly (re)started connection.
+        lastActivity = System.currentTimeMillis();
 
         // Resolve the host address
         InetSocketAddress hostAddress = null;

@@ -32,6 +32,10 @@ of the Balboa Wi-Fi module.
 | `reconnectInterval` | integer | yes      | 30      | Seconds before the first reconnect attempt after a disconnect; further attempts back off exponentially, capped at 10 minutes |
 | `pollingInterval`   | integer | yes      | 60      | Seconds between polling requests sent to keep the connection alive   |
 
+If the unit stops responding without properly closing the connection (for example if its Wi-Fi module loses
+power), the binding notices that no data has been received for a while, closes the connection itself and goes
+through the same reconnect logic as for a normal disconnect.
+
 ### `balboa.things` Example
 
 ```java

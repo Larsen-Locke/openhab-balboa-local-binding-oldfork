@@ -64,6 +64,8 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
     private ReconnectJob reconnectJob = new ReconnectJob();
     // This is used to poll the unit for non-broadcast information and keeping the connection alive.
     private PollingJob pollingJob = new PollingJob();
+    // This detects a unit that has silently disappeared (no FIN/RST, e.g. powered off) and forces a reconnect.
+    private WatchdogJob watchdogJob = new WatchdogJob();
 
     /**
      * Helper class providing a thread safe reconnection mechanism.
@@ -183,6 +185,57 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
         }
     }
 
+    /**
+     * Helper class detecting a unit that has gone silent without the socket noticing (no FIN/RST is sent if e.g. the
+     * Wi-Fi module simply loses power), by periodically checking how long it has been since anything was received.
+     *
+     * @author Carsten Mogge
+     *
+     */
+    private class WatchdogJob implements Runnable {
+        // How often to check for staleness.
+        private static final long CHECK_INTERVAL_SECONDS = 30;
+        // The unit normally streams status updates several times per second while connected, so anything longer
+        // than this without receiving a single byte means the connection is effectively dead.
+        private static final long COMMUNICATION_TIMEOUT_MILLIS = 90_000;
+
+        private @Nullable ScheduledFuture<?> job;
+
+        /**
+         * Starts the watchdog if not already active.
+         */
+        public synchronized void start() {
+            if (job == null) {
+                job = scheduler.scheduleWithFixedDelay(this, CHECK_INTERVAL_SECONDS, CHECK_INTERVAL_SECONDS,
+                        TimeUnit.SECONDS);
+            }
+        }
+
+        /**
+         * Stops the watchdog if active.
+         */
+        public synchronized void stop() {
+            if (job != null) {
+                job.cancel(true);
+                job = null;
+            }
+        }
+
+        /**
+         * Checks how long it has been since data was last received, and forces a reconnect if it has been too long.
+         */
+        @Override
+        public void run() {
+            long silence = protocol.getMillisSinceLastActivity();
+            if (silence > COMMUNICATION_TIMEOUT_MILLIS) {
+                logger.warn("No data received from the Balboa unit for {} ms, assuming the connection is dead",
+                        silence);
+                // This triggers onStateChange(OFFLINE, ...), which in turn schedules a reconnect.
+                protocol.disconnect();
+            }
+        }
+    }
+
     // We keep all channels in a hash map. It is easier to treat all channels the same way, since the majority are
     // dynamic.
     private class ChannelMap extends HashMap<ChannelUID, BalboaChannel> {
@@ -252,8 +305,9 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
      */
     @Override
     public void dispose() {
-        // Stop any active polling job
+        // Stop any active polling and watchdog jobs
         pollingJob.stop();
+        watchdogJob.stop();
 
         // Disallow reconnect attempts and disconnect
         reconnectJob.disable();
@@ -287,8 +341,9 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
      */
     @Override
     public void onStateChange(Status status, String detail) {
-        // Stop any active polling job before handling status transitions
+        // Stop any active polling and watchdog jobs before handling status transitions
         pollingJob.stop();
+        watchdogJob.stop();
 
         // Handle the status transition
         switch (status) {
@@ -322,8 +377,9 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
                 logger.info("Balboa Protocol is Online");
                 // Reset the reconnect backoff now that the connection is confirmed to be working again
                 reconnectJob.resetBackoff();
-                // Start sending poll messages
+                // Start sending poll messages and watching for the unit going silent
                 pollingJob.start();
+                watchdogJob.start();
                 break;
             default:
                 break;
