@@ -386,15 +386,19 @@ public class BalboaProtocol {
                 // The first byte must be a separator
                 byte startByte = readBuffer.get();
                 if (startByte != MESSAGE_SEPARATOR) {
-                    logger.debug("Message did not start with {}, got {}", MESSAGE_SEPARATOR, startByte);
-                    // Discard the whole buffer in this case
-                    readBuffer.position(0);
-                    readBuffer.limit(0);
-                    break;
+                    logger.debug("Message did not start with {}, got {}, resynchronizing", MESSAGE_SEPARATOR,
+                            startByte);
+                    // A single stray or dropped byte should not cost us every message that follows it: look for
+                    // the next separator instead of discarding everything currently buffered.
+                    resync(readBuffer.position());
+                    continue;
                 }
 
-                // Second byte is the length byte
-                int messageLength = readBuffer.get();
+                // Second byte is the length byte. Read it as an unsigned value (0-255): a plain byte-to-int
+                // widening would sign-extend anything with the high bit set into a negative number, which would
+                // then bypass the "enough data buffered" check below and blow up array/index arithmetic further
+                // down for what is just a garbled or misaligned message.
+                int messageLength = readBuffer.get() & 0xFF;
 
                 // Make sure the full message is in the buffer
                 if (messageLength > readBuffer.remaining()) {
@@ -422,11 +426,13 @@ public class BalboaProtocol {
 
                 // Check that there is a separator at the end.
                 if (message[message.length - 1] != MESSAGE_SEPARATOR) {
-                    logger.debug("Message did not end with {}", MESSAGE_SEPARATOR);
-                    // Discard the whole buffer in this case
-                    readBuffer.position(0);
-                    readBuffer.limit(0);
-                    break;
+                    logger.debug("Message did not end with {}, resynchronizing", MESSAGE_SEPARATOR);
+                    // The length byte was apparently wrong (garbled or misaligned data). Go back to right after
+                    // the separator that started this bogus message and look for the next real one instead of
+                    // discarding everything currently buffered.
+                    readBuffer.reset();
+                    resync(readBuffer.position() + 1);
+                    continue;
                 }
 
                 // Length must be at least 5 (3 bytes message type, crc and separator)
@@ -468,6 +474,24 @@ public class BalboaProtocol {
 
             // Start a new read (wait for more data)
             start();
+        }
+
+        /**
+         * Resynchronizes the buffer on the next message separator found from (and including) the given position,
+         * discarding everything before it. If none is found, the whole buffer is discarded and parsing resumes
+         * once more data has arrived.
+         *
+         * @param from the buffer position to start searching from
+         */
+        private void resync(int from) {
+            for (int i = from; i < readBuffer.limit(); i++) {
+                if (readBuffer.get(i) == MESSAGE_SEPARATOR) {
+                    readBuffer.position(i);
+                    return;
+                }
+            }
+            readBuffer.position(0);
+            readBuffer.limit(0);
         }
 
         /**
