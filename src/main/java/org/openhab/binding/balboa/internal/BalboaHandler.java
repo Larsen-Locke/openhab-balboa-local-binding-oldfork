@@ -364,8 +364,12 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
             case OFFLINE:
                 // Schedule a reconnect (nothing will happen if reconnects are disabled)
                 reconnectJob.schedule();
-                // We only update status if we were online (we are in disposal otherwise).
-                if (this.getThing().getStatus() == ThingStatus.ONLINE) {
+                // Avoid spamming the framework with a redundant, identical update on every failed reconnect
+                // attempt once we are already showing OFFLINE. But do report the transition into OFFLINE
+                // whether it came from ONLINE (a real disconnect) or from UNKNOWN (the very first connect
+                // attempt after startup failed) - otherwise a Thing that fails to connect on the first try
+                // would appear stuck on UNKNOWN forever, even while reconnect attempts keep happening.
+                if (this.getThing().getStatus() != ThingStatus.OFFLINE) {
                     updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, detail);
                     logger.info("Balboa Protocol went Offline");
                 } else {
