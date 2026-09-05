@@ -280,17 +280,16 @@ public class BalboaProtocol {
             // Queue the item if writing is already in progress
             if (writeInProgress) {
                 queue.add(buffer);
-            } else {
+            } else if (socket != null) {
                 // Otherwise start writing
                 logger.trace("Write session started");
                 writeInProgress = true;
-                if (socket != null) {
-                    socket.write(buffer, buffer, this);
-                } else {
-                    // Abort if we are not connected
-                    writeInProgress = false;
-                    throw new IllegalStateException("Cannot send message while not connected");
-                }
+                socket.write(buffer, buffer, this);
+            } else {
+                // Not connected right now (e.g. offline or reconnecting). There is nothing to send this on, and
+                // whoever triggered this (e.g. a command sent to a channel while the unit is unreachable) has no
+                // way to react to an exception here, so just drop the message instead of failing loudly.
+                logger.debug("Discarding outgoing message, not connected");
             }
         }
 
@@ -587,7 +586,10 @@ public class BalboaProtocol {
 
                 @Override
                 public void failed(@Nullable Throwable exc, BalboaProtocol bp) {
-                    // Failed to connect, report the error
+                    // Failed to connect. The unit is simply unreachable right now (powered off, network outage,
+                    // ...) rather than misconfigured, so treat it like any other disconnect (OFFLINE), not as a
+                    // configuration ERROR - that keeps the reconnect loop going without flapping the Thing status
+                    // between OFFLINE and a configuration error on every failed retry.
                     String detail;
                     if (exc == null) {
                         detail = "Connection Failed";
@@ -595,7 +597,7 @@ public class BalboaProtocol {
                         detail = String.format("Connection Failed: %s", exc.getMessage());
                     }
                     logger.debug("{}", detail);
-                    setStatus(Status.ERROR, detail);
+                    setStatus(Status.OFFLINE, detail);
                     // Mark the socket as not valid and reset the reader/writer
                     socket = null;
                     reader.reset();
