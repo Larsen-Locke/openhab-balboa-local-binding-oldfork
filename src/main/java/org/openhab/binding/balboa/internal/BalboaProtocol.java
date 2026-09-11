@@ -52,7 +52,10 @@ public class BalboaProtocol {
     private Writer writer = new Writer();
     private Reader reader = new Reader();
     private boolean babble = false;
-    private Status status = Status.INITIAL;
+    // Read from the protocol's own (synchronized) methods as well as from the asynchronous socket
+    // channel's completion-handler threads (e.g. Reader#completed's babble check). volatile ensures a
+    // status change is visible to those callback threads right away instead of a possibly stale value.
+    private volatile Status status = Status.INITIAL;
     // Timestamp of the last time data was received from the unit. A TCP peer that disappears without sending a
     // FIN/RST (e.g. its Wi-Fi module is powered off) is not detected by the socket itself: reads simply never
     // complete. Callers use this to notice such a "silently dead" connection and force a reconnect.
@@ -220,6 +223,13 @@ public class BalboaProtocol {
      */
     private class Writer implements CompletionHandler<@Nullable Integer, ByteBuffer> {
 
+        // Upper bound for how many outgoing messages may pile up while a write is in progress. Normal
+        // traffic (polling plus the occasional command) never gets remotely close to this; it only exists
+        // so that a socket write that stalls without failing (e.g. the peer accepted the connection but
+        // stopped consuming data) cannot make this queue grow without bound until the watchdog eventually
+        // notices the silence and forces a reconnect.
+        private static final int MAX_QUEUE_SIZE = 32;
+
         private LinkedList<ByteBuffer> queue = new LinkedList<ByteBuffer>();;
         private boolean writeInProgress = false;
 
@@ -279,6 +289,14 @@ public class BalboaProtocol {
 
             // Queue the item if writing is already in progress
             if (writeInProgress) {
+                if (queue.size() >= MAX_QUEUE_SIZE) {
+                    // The write session has been stuck for a while (the watchdog will eventually notice
+                    // the accompanying read silence and force a reconnect). Drop the new message instead
+                    // of growing the queue without bound.
+                    logger.warn("Outgoing message queue is full ({} messages), dropping message - the connection may be stuck",
+                            MAX_QUEUE_SIZE);
+                    return;
+                }
                 queue.add(buffer);
             } else if (socket != null) {
                 // Otherwise start writing

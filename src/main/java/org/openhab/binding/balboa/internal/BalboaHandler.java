@@ -12,7 +12,7 @@
  */
 package org.openhab.binding.balboa.internal;
 
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -237,8 +237,10 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
     }
 
     // We keep all channels in a hash map. It is easier to treat all channels the same way, since the majority are
-    // dynamic.
-    private class ChannelMap extends HashMap<ChannelUID, BalboaChannel> {
+    // dynamic. This is read from the framework's command-handling thread (handleCommand) and written/iterated
+    // from the protocol's callback thread (onMessage, e.g. when the channel set is rebuilt after a reconnect) -
+    // a plain HashMap is not safe for that, so this uses a ConcurrentHashMap instead.
+    private class ChannelMap extends ConcurrentHashMap<ChannelUID, BalboaChannel> {
         private static final long serialVersionUID = 1L;
 
         // Helper method to add a channel with its UID as key
@@ -321,9 +323,12 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
      */
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
-        // Pass the command to the given channel
-        if (channels.containsKey(channelUID)) {
-            channels.get(channelUID).handleCommand(command);
+        // Pass the command to the given channel. A single get() (rather than containsKey() followed by a
+        // separate get()) avoids a race with the channel set being rebuilt concurrently on the protocol
+        // callback thread between the two calls.
+        BalboaChannel channel = channels.get(channelUID);
+        if (channel != null) {
+            channel.handleCommand(command);
         } else {
             logger.warn("Command received on unknown channel: {}", channelUID.getAsString());
         }
@@ -521,8 +526,10 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
      * |- Specific handlers for HeatMode, TemperatureChannel, TemperatureScale, TemperatureRange and FilterStatus
      */
 
-    // We need to track what temperature scale and range we are currently at, in order to form update messages properly.
-    private boolean celciusDisplay, temperatureHighRange;
+    // We need to track what temperature scale and range we are currently at, in order to form update messages
+    // properly. Written from the protocol callback thread (handleUpdate) and read from the framework's
+    // command-handling thread (handleCommand), hence volatile.
+    private volatile boolean celciusDisplay, temperatureHighRange;
 
     /**
      * Channels exposed by the Balboa Unit are handled by classes implementing the {@link BalboaChannel} interface.
