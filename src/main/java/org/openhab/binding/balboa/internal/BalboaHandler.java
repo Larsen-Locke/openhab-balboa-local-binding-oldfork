@@ -12,6 +12,7 @@
  */
 package org.openhab.binding.balboa.internal;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
@@ -182,6 +183,9 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
             logger.trace("Polling the unit");
             // Send an information request
             protocol.sendMessage(new BalboaMessage.SettingsRequestMessage(SettingsType.INFORMATION));
+            // Also refresh the fault log, so a newly logged fault shows up on the fault-code/fault-time channels
+            // without needing a reconnect.
+            protocol.sendMessage(new BalboaMessage.SettingsRequestMessage(SettingsType.FAULT_LOG));
         }
     }
 
@@ -422,6 +426,20 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
             channels.addChannel(
                     new ContactChannel(ItemType.CIRCULATION, "circulation", "Circulation Pump", "circulation"));
             channels.addChannel(new ContactChannel(ItemType.HEATER, "heater", "Heater", "heater"));
+
+            // Fault log (most recent entry) and filter cycle configuration. These are not reported in the panel
+            // configuration message, so unlike the items below they are unconditionally always present.
+            channels.addChannel(new FaultCodeChannel());
+            channels.addChannel(new FaultTimeChannel());
+            channels.addChannel(
+                    new FilterCycleTimeChannel(1, FilterCycleField.START, "filter-1-start", "Filter Cycle 1 Start"));
+            channels.addChannel(new FilterCycleTimeChannel(1, FilterCycleField.DURATION, "filter-1-duration",
+                    "Filter Cycle 1 Duration"));
+            channels.addChannel(
+                    new FilterCycleTimeChannel(2, FilterCycleField.START, "filter-2-start", "Filter Cycle 2 Start"));
+            channels.addChannel(new FilterCycleTimeChannel(2, FilterCycleField.DURATION, "filter-2-duration",
+                    "Filter Cycle 2 Duration"));
+            channels.addChannel(new Filter2EnabledChannel());
 
             // Add pumps based on the configuration message. These can be one- or two-speed (Switch or OFF/LOW/HIGH).
             // TODO: Two-speed pumps have not been tested (need a user with such items in the unit)
@@ -1129,6 +1147,210 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
                 }
                 // Make the update
                 updateState(getChannelUID(), state);
+            }
+        }
+    }
+
+    /**
+     * Handles the fault code channel, showing the most recent entry from the Balboa unit's fault log (a numeric
+     * code, e.g. "sensor A fault" or "low flow"), or "NONE" if the log is empty.
+     *
+     * @author Carsten Mogge
+     */
+    private class FaultCodeChannel extends BaseBalboaChannel {
+        // Maps the numeric fault/message codes used in the fault log to a short, readable description. Codes not
+        // in this map (Balboa does not publish the full list) are shown as "Fault <code>" instead.
+        // Note: not static - inner classes may not declare static fields other than compile-time constants, and a
+        // Map is not one; this is cheap to build once per (singleton) channel instance.
+        // @formatter:off
+        private final Map<Integer, String> faultCodes = Map.ofEntries(
+                Map.entry(15, "Sensors out of sync"),
+                Map.entry(16, "Low flow"),
+                Map.entry(17, "Flow failed"),
+                Map.entry(18, "Settings reset"),
+                Map.entry(19, "Priming mode"),
+                Map.entry(20, "Clock failed"),
+                Map.entry(21, "Settings reset"),
+                Map.entry(22, "Memory failure"),
+                Map.entry(26, "Sensor sync (service)"),
+                Map.entry(27, "Heater dry"),
+                Map.entry(28, "Heater may be dry"),
+                Map.entry(29, "Water too hot"),
+                Map.entry(30, "Heater too hot"),
+                Map.entry(31, "Sensor A fault"),
+                Map.entry(32, "Sensor B fault"),
+                Map.entry(34, "Pump stuck on"),
+                Map.entry(35, "Hot fault"),
+                Map.entry(36, "GFCI test failed"),
+                Map.entry(37, "Standby mode"));
+        // @formatter:on
+
+        protected FaultCodeChannel() {
+            super("fault-code", "Last Fault", "fault-code", "String");
+        }
+
+        /**
+         * The channel is read only, no action will be taken.
+         */
+        @Override
+        public void handleCommand(Command command) {
+            if (command instanceof RefreshType) {
+                // Status is refreshed periodically by the protocol, no action is needed.
+            } else {
+                logger.warn("Fault code channel received update of type {}", command.getClass().getSimpleName());
+            }
+        }
+
+        /**
+         * Updates the channel state from fault log messages.
+         */
+        @Override
+        public void handleUpdate(BalboaMessage message) {
+            if (message instanceof BalboaMessage.FaultLogResponseMessage) {
+                BalboaMessage.FaultLogResponseMessage fault = (BalboaMessage.FaultLogResponseMessage) message;
+                if (fault.getFaultCount() == 0) {
+                    updateState(getChannelUID(), StringType.valueOf("NONE"));
+                } else {
+                    int code = fault.getFaultCode();
+                    updateState(getChannelUID(), StringType.valueOf(faultCodes.getOrDefault(code, "Fault " + code)));
+                }
+            }
+        }
+    }
+
+    /**
+     * Handles the fault time channel, showing when the most recent fault log entry occurred (best effort - the
+     * unit only reports "days ago" plus a time of day, not an exact date), or "-" if the log is empty.
+     *
+     * @author Carsten Mogge
+     */
+    private class FaultTimeChannel extends BaseBalboaChannel {
+        protected FaultTimeChannel() {
+            super("fault-time", "Last Fault Time", "fault-time", "String");
+        }
+
+        /**
+         * The channel is read only, no action will be taken.
+         */
+        @Override
+        public void handleCommand(Command command) {
+            if (command instanceof RefreshType) {
+                // Status is refreshed periodically by the protocol, no action is needed.
+            } else {
+                logger.warn("Fault time channel received update of type {}", command.getClass().getSimpleName());
+            }
+        }
+
+        /**
+         * Updates the channel state from fault log messages.
+         */
+        @Override
+        public void handleUpdate(BalboaMessage message) {
+            if (message instanceof BalboaMessage.FaultLogResponseMessage) {
+                BalboaMessage.FaultLogResponseMessage fault = (BalboaMessage.FaultLogResponseMessage) message;
+                if (fault.getFaultCount() == 0) {
+                    updateState(getChannelUID(), StringType.valueOf("-"));
+                } else {
+                    int daysAgo = fault.getDaysAgo();
+                    String when = daysAgo == 0 ? "today" : daysAgo == 1 ? "1 day ago" : daysAgo + " days ago";
+                    updateState(getChannelUID(), StringType
+                            .valueOf(String.format("%s at %02d:%02d", when, fault.getHour(), fault.getMinute())));
+                }
+            }
+        }
+    }
+
+    /**
+     * Selects which field of a filter cycle a {@link FilterCycleTimeChannel} reports.
+     *
+     * @author Carsten Mogge
+     */
+    private enum FilterCycleField {
+        START,
+        DURATION
+    }
+
+    /**
+     * Handles the filter cycle start/duration channels (four of these are instantiated: start and duration, for
+     * filter cycles 1 and 2).
+     *
+     * @author Carsten Mogge
+     */
+    private class FilterCycleTimeChannel extends BaseBalboaChannel {
+        private final int cycle;
+        private final FilterCycleField field;
+
+        /**
+         * Instantiate a filter cycle time channel.
+         *
+         * @param cycle 1 or 2
+         * @param field whether this channel reports the start time or the duration
+         */
+        protected FilterCycleTimeChannel(int cycle, FilterCycleField field, String id, String description) {
+            super(id, description, "filter-cycle-time", "String");
+            this.cycle = cycle;
+            this.field = field;
+        }
+
+        /**
+         * The channel is read only, no action will be taken.
+         */
+        @Override
+        public void handleCommand(Command command) {
+            if (command instanceof RefreshType) {
+                // Status is refreshed periodically by the protocol, no action is needed.
+            } else {
+                logger.warn("Filter cycle channel received update of type {}", command.getClass().getSimpleName());
+            }
+        }
+
+        /**
+         * Updates the channel state from filter cycle messages.
+         */
+        @Override
+        public void handleUpdate(BalboaMessage message) {
+            if (message instanceof BalboaMessage.FilterCyclesResponseMessage) {
+                BalboaMessage.FilterCyclesResponseMessage cycles = (BalboaMessage.FilterCyclesResponseMessage) message;
+                byte hour = field == FilterCycleField.START ? cycles.getStartHour(cycle)
+                        : cycles.getDurationHour(cycle);
+                byte minute = field == FilterCycleField.START ? cycles.getStartMinute(cycle)
+                        : cycles.getDurationMinute(cycle);
+                updateState(getChannelUID(), StringType.valueOf(String.format("%02d:%02d", hour, minute)));
+            }
+        }
+    }
+
+    /**
+     * Handles the filter cycle 2 enabled channel. Filter cycle 1 has no such flag - it is always active.
+     *
+     * @author Carsten Mogge
+     */
+    private class Filter2EnabledChannel extends BaseBalboaChannel {
+        protected Filter2EnabledChannel() {
+            super("filter-2-enabled", "Filter Cycle 2 Enabled", "filter2-enabled", "Contact");
+        }
+
+        /**
+         * The channel is read only, no action will be taken.
+         */
+        @Override
+        public void handleCommand(Command command) {
+            if (command instanceof RefreshType) {
+                // Status is refreshed periodically by the protocol, no action is needed.
+            } else {
+                logger.warn("Filter cycle 2 enabled channel received update of type {}",
+                        command.getClass().getSimpleName());
+            }
+        }
+
+        /**
+         * Updates the channel state from filter cycle messages.
+         */
+        @Override
+        public void handleUpdate(BalboaMessage message) {
+            if (message instanceof BalboaMessage.FilterCyclesResponseMessage) {
+                BalboaMessage.FilterCyclesResponseMessage cycles = (BalboaMessage.FilterCyclesResponseMessage) message;
+                updateState(getChannelUID(), cycles.isFilter2Enabled() ? OpenClosedType.OPEN : OpenClosedType.CLOSED);
             }
         }
     }

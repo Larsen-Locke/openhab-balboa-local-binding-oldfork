@@ -221,4 +221,29 @@
 			</options>
 		</state>
 	</channel-type>
+	<channel-type id="fault-code">
+		<item-type>String</item-type>
+		<label>Last Fault</label>
+		<description>Description of the most recent entry in the unit's fault log, or NONE if it is empty.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="fault-time">
+		<item-type>String</item-type>
+		<label>Last Fault Time</label>
+		<description>When the most recent fault occurred, e.g. "2 days ago at 14:32". Best effort: the unit only
+			reports the time of day and how many days ago, not an exact date/time.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="filter-cycle-time">
+		<item-type>String</item-type>
+		<label>Filter Cycle Time</label>
+		<description>Start time or duration of a filter cycle, as HH:MM.</description>
+		<state readOnly="true" pattern="%s"/>
+	</channel-type>
+	<channel-type id="filter2-enabled">
+		<item-type>Contact</item-type>
+		<label>Filter Cycle 2 Enabled</label>
+		<description>Whether the second filter cycle is enabled at all. Filter cycle 1 cannot be disabled.</description>
+		<state readOnly="true"/>
+	</channel-type>
 </thing:thing-descriptions>

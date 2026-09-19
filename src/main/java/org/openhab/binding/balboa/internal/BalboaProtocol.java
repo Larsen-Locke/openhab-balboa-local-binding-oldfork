@@ -620,6 +620,10 @@ public class BalboaProtocol {
                     // We are connected, but not configured yet. Request the information and update status
                     writer.sendMessage(new BalboaMessage.SettingsRequestMessage(SettingsType.INFORMATION));
                     writer.sendMessage(new BalboaMessage.SettingsRequestMessage(SettingsType.PANEL));
+                    // Also request the filter cycle configuration and the most recent fault log entry, so those
+                    // channels have a value right after connecting instead of waiting for the first poll.
+                    writer.sendMessage(new BalboaMessage.SettingsRequestMessage(SettingsType.FILTER_CYCLES));
+                    writer.sendMessage(new BalboaMessage.SettingsRequestMessage(SettingsType.FAULT_LOG));
                     setStatus(Status.CONFIGURATION_PENDING, "Configuration request sent");
 
                     // Start the reader

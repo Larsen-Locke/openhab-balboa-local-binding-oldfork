@@ -43,6 +43,8 @@ public class BalboaMessage {
         messageTypeMap.put(StatusUpdateMessage.MESSAGE_TYPE, StatusUpdateMessage.class);
         messageTypeMap.put(InformationResponseMessage.MESSAGE_TYPE, InformationResponseMessage.class);
         messageTypeMap.put(PanelConfigurationResponseMessage.MESSAGE_TYPE, PanelConfigurationResponseMessage.class);
+        messageTypeMap.put(FilterCyclesResponseMessage.MESSAGE_TYPE, FilterCyclesResponseMessage.class);
+        messageTypeMap.put(FaultLogResponseMessage.MESSAGE_TYPE, FaultLogResponseMessage.class);
     }
 
     /**
@@ -730,6 +732,173 @@ public class BalboaMessage {
          */
         public byte getMister() {
             return mister;
+        }
+    }
+
+    /**
+     * The {@link FilterCyclesResponseMessage} messages are sent in response to a {@link SettingsRequestMessage} of
+     * type {@link SettingsRequestMessage.SettingsType#FILTER_CYCLES}. They report the configured start time and
+     * duration of the two filter cycles, and whether filter cycle 2 is enabled at all.
+     *
+     * The payload layout is not documented by Balboa. It is taken from community protocol documentation
+     * (ccutrer/balboa_worldwide_app), cross-checked against other open source Balboa implementations.
+     *
+     * @author Carsten Mogge
+     */
+    static public class FilterCyclesResponseMessage extends BalboaMessage implements BalboaMessage.Inbound {
+        public static final int MESSAGE_TYPE = 0x0abf23;
+        public static final int MESSAGE_LENGTH = 15;
+
+        // Index 0 is filter cycle 1, index 1 is filter cycle 2 - there are never more than two.
+        private byte[] startHour = new byte[2];
+        private byte[] startMinute = new byte[2];
+        private byte[] durationHour = new byte[2];
+        private byte[] durationMinute = new byte[2];
+        private boolean filter2Enabled;
+
+        public FilterCyclesResponseMessage(byte[] buffer) {
+            // Byte 5: Filter 1 start hour
+            // Byte 6: Filter 1 start minute
+            // Byte 7: Filter 1 duration hours
+            // Byte 8: Filter 1 duration minutes
+            // Byte 9: Filter 2 start hour, bit 7 (0x80) is an enable/disable flag for filter cycle 2 itself
+            // Byte 10: Filter 2 start minute
+            // Byte 11: Filter 2 duration hours
+            // Byte 12: Filter 2 duration minutes
+            // Filter cycle 1 has no enable/disable flag - it is always active.
+            startHour[0] = buffer[5];
+            startMinute[0] = buffer[6];
+            durationHour[0] = buffer[7];
+            durationMinute[0] = buffer[8];
+            filter2Enabled = (buffer[9] & 0x80) != 0;
+            startHour[1] = (byte) (buffer[9] & 0x7F);
+            startMinute[1] = buffer[10];
+            durationHour[1] = buffer[11];
+            durationMinute[1] = buffer[12];
+
+            logger.trace(
+                    "Filter Cycles received: 1 {}:{}+{}:{} 2 {}:{}+{}:{} (filter 2 enabled={})", startHour[0],
+                    startMinute[0], durationHour[0], durationMinute[0], startHour[1], startMinute[1],
+                    durationHour[1], durationMinute[1], filter2Enabled);
+        }
+
+        /**
+         * Gets the start hour of the given filter cycle.
+         *
+         * @param cycle 1 or 2
+         */
+        public byte getStartHour(int cycle) {
+            return startHour[cycle - 1];
+        }
+
+        /**
+         * Gets the start minute of the given filter cycle.
+         *
+         * @param cycle 1 or 2
+         */
+        public byte getStartMinute(int cycle) {
+            return startMinute[cycle - 1];
+        }
+
+        /**
+         * Gets the duration (hours part) of the given filter cycle.
+         *
+         * @param cycle 1 or 2
+         */
+        public byte getDurationHour(int cycle) {
+            return durationHour[cycle - 1];
+        }
+
+        /**
+         * Gets the duration (minutes part) of the given filter cycle.
+         *
+         * @param cycle 1 or 2
+         */
+        public byte getDurationMinute(int cycle) {
+            return durationMinute[cycle - 1];
+        }
+
+        /**
+         * Whether filter cycle 2 is enabled. Filter cycle 1 is always enabled.
+         */
+        public boolean isFilter2Enabled() {
+            return filter2Enabled;
+        }
+    }
+
+    /**
+     * The {@link FaultLogResponseMessage} messages are sent in response to a {@link SettingsRequestMessage} of type
+     * {@link SettingsRequestMessage.SettingsType#FAULT_LOG}. The request always asks for entry number 0xFF, which
+     * the unit interprets as "the most recent entry", so this message always reports the latest fault (if any).
+     *
+     * The payload layout is not documented by Balboa. It is taken from community protocol documentation
+     * (ccutrer/balboa_worldwide_app), cross-checked against other open source Balboa implementations.
+     *
+     * @author Carsten Mogge
+     */
+    static public class FaultLogResponseMessage extends BalboaMessage implements BalboaMessage.Inbound {
+        public static final int MESSAGE_TYPE = 0x0abf28;
+        public static final int MESSAGE_LENGTH = 17;
+
+        private byte faultCount;
+        private byte faultCode;
+        private byte daysAgo;
+        private byte hour;
+        private byte minute;
+
+        public FaultLogResponseMessage(byte[] buffer) {
+            // Byte 5: Fault count - total number of entries currently in the log (0 if none ever occurred)
+            // Byte 6: Entry number of this response (always 0, the most recent entry, given how we request it)
+            // Byte 7: Message/fault code
+            // Byte 8: Days ago
+            // Byte 9: Time hour
+            // Byte 10: Time minute
+            // Bytes 11-14: Flags (heat mode/temperature range), set temperature, sensor A/B temperature - not
+            // currently decoded, not needed for the channels this exposes.
+            faultCount = buffer[5];
+            faultCode = buffer[7];
+            daysAgo = buffer[8];
+            hour = buffer[9];
+            minute = buffer[10];
+
+            logger.trace("Fault Log received: count={} code={} daysAgo={} time={}:{}", getFaultCount(),
+                    getFaultCode(), getDaysAgo(), hour, minute);
+        }
+
+        /**
+         * The total number of entries currently in the fault log. Zero means no fault has ever been logged.
+         */
+        public int getFaultCount() {
+            return faultCount & 0xFF;
+        }
+
+        /**
+         * The numeric fault/message code of the most recent entry. Only meaningful if {@link #getFaultCount()} is
+         * greater than zero.
+         */
+        public int getFaultCode() {
+            return faultCode & 0xFF;
+        }
+
+        /**
+         * How many days ago the most recent fault occurred (0 = today).
+         */
+        public int getDaysAgo() {
+            return daysAgo & 0xFF;
+        }
+
+        /**
+         * The hour (0-23) at which the most recent fault occurred.
+         */
+        public byte getHour() {
+            return hour;
+        }
+
+        /**
+         * The minute (0-59) at which the most recent fault occurred.
+         */
+        public byte getMinute() {
+            return minute;
         }
     }
 
