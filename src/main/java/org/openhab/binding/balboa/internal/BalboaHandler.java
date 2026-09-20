@@ -1047,8 +1047,8 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
                     double desired = temperatureHighRange ? desiredHighTarget : desiredLowTarget;
                     double rawState = status.getTemperature(true);
                     if (!Double.isNaN(desired) && rawState >= 0 && Math.abs(desired - rawState) > 0.4) {
-                        protocol.sendMessage(new BalboaMessage.SetTemperatureMessage(desired, celciusDisplay,
-                                temperatureHighRange));
+                        protocol.sendMessage(
+                                new BalboaMessage.SetTemperatureMessage(desired, celciusDisplay, temperatureHighRange));
                     }
                 }
             }
@@ -1466,8 +1466,7 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
             } else if (command instanceof RefreshType) {
                 // Status is sent continuously by the protocol, no action is needed.
             } else {
-                logger.warn("Heat Mode switch channel received update of type {}",
-                        command.getClass().getSimpleName());
+                logger.warn("Heat Mode switch channel received update of type {}", command.getClass().getSimpleName());
             }
         }
 

@@ -293,7 +293,8 @@ public class BalboaProtocol {
                     // The write session has been stuck for a while (the watchdog will eventually notice
                     // the accompanying read silence and force a reconnect). Drop the new message instead
                     // of growing the queue without bound.
-                    logger.warn("Outgoing message queue is full ({} messages), dropping message - the connection may be stuck",
+                    logger.warn(
+                            "Outgoing message queue is full ({} messages), dropping message - the connection may be stuck",
                             MAX_QUEUE_SIZE);
                     return;
                 }

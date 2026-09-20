@@ -776,10 +776,9 @@ public class BalboaMessage {
             durationHour[1] = buffer[11];
             durationMinute[1] = buffer[12];
 
-            logger.trace(
-                    "Filter Cycles received: 1 {}:{}+{}:{} 2 {}:{}+{}:{} (filter 2 enabled={})", startHour[0],
-                    startMinute[0], durationHour[0], durationMinute[0], startHour[1], startMinute[1],
-                    durationHour[1], durationMinute[1], filter2Enabled);
+            logger.trace("Filter Cycles received: 1 {}:{}+{}:{} 2 {}:{}+{}:{} (filter 2 enabled={})", startHour[0],
+                    startMinute[0], durationHour[0], durationMinute[0], startHour[1], startMinute[1], durationHour[1],
+                    durationMinute[1], filter2Enabled);
         }
 
         /**
@@ -861,8 +860,8 @@ public class BalboaMessage {
             hour = buffer[9];
             minute = buffer[10];
 
-            logger.trace("Fault Log received: count={} code={} daysAgo={} time={}:{}", getFaultCount(),
-                    getFaultCode(), getDaysAgo(), hour, minute);
+            logger.trace("Fault Log received: count={} code={} daysAgo={} time={}:{}", getFaultCount(), getFaultCode(),
+                    getDaysAgo(), hour, minute);
         }
 
         /**
