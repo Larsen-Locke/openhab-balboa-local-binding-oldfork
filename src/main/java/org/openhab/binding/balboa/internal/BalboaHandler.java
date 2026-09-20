@@ -12,6 +12,7 @@
  */
 package org.openhab.binding.balboa.internal;
 
+import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
@@ -528,10 +529,11 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
 
             // Build the channels on the thing. Start by wiping all channels existing (e.g. from a previous connect)
             ThingBuilder builder = editThing().withoutChannels(getThing().getChannels());
-            // Add the channels determined above.
-            for (BalboaChannel channel : channels.values()) {
-                builder.withChannel(channel.getChannel());
-            }
+            // Add the channels determined above, sorted alphabetically by channel id. The backing map's iteration
+            // order is hash-based, not insertion order, so without this the channel list order in the UI would be
+            // effectively random.
+            channels.values().stream().sorted(Comparator.comparing(channel -> channel.getChannelUID().getId()))
+                    .forEach(channel -> builder.withChannel(channel.getChannel()));
 
             // Update the thing with the channels
             updateThing(builder.build());
