@@ -208,6 +208,26 @@
 			</options>
 		</state>
 	</channel-type>
+	<channel-type id="temperature-range-switch">
+		<item-type>Switch</item-type>
+		<label>Temperature Range (Switch)</label>
+		<description>Temperature Range as a plain Switch (ON = High, OFF = Low), for linking a Switch item directly
+			without a
+			second item and a profile.</description>
+		<tags>
+			<tag>Switchable</tag>
+		</tags>
+	</channel-type>
+	<channel-type id="heat-mode-switch">
+		<item-type>Switch</item-type>
+		<label>Heat Mode (Switch)</label>
+		<description>Heat Mode as a plain Switch (ON = Ready, OFF = Rest/Ready in Rest), for linking a Switch item
+			directly
+			without a second item and a profile.</description>
+		<tags>
+			<tag>Switchable</tag>
+		</tags>
+	</channel-type>
 	<channel-type id="filter">
 		<item-type>String</item-type>
 		<label>Filter Status</label>
@@ -231,7 +251,8 @@
 		<item-type>String</item-type>
 		<label>Last Fault Time</label>
 		<description>When the most recent fault occurred, e.g. "2 days ago at 14:32". Best effort: the unit only
-			reports the time of day and how many days ago, not an exact date/time.</description>
+			reports the
+			time of day and how many days ago, not an exact date/time.</description>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="filter-cycle-time">

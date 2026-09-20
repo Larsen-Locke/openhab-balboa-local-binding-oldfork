@@ -422,6 +422,18 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
             channels.addChannel(new TemperatureRange());
             channels.addChannel(new HeatMode());
             channels.addChannel(new FilterStatus());
+
+            // Plain Switch views of Temperature Range and Heat Mode, so a Switch item can be linked directly to
+            // the channel without a second item plus a profile transforming the String channel to ON/OFF.
+            channels.addChannel(new TemperatureRangeSwitch());
+            channels.addChannel(new HeatModeSwitch());
+
+            // Independent per-range desired target temperatures (see DesiredTemperatureChannel for why this
+            // needs to be its own thing, rather than just reading/writing the plain target-temperature channel).
+            channels.addChannel(
+                    new DesiredTemperatureChannel(true, "target-temperature-high", "Target Temperature (High)"));
+            channels.addChannel(
+                    new DesiredTemperatureChannel(false, "target-temperature-low", "Target Temperature (Low)"));
             channels.addChannel(new ContactChannel(ItemType.PRIMING, "priming", "Priming", "priming"));
             channels.addChannel(
                     new ContactChannel(ItemType.CIRCULATION, "circulation", "Circulation Pump", "circulation"));
@@ -548,6 +560,14 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
     // properly. Written from the protocol callback thread (handleUpdate) and read from the framework's
     // command-handling thread (handleCommand), hence volatile.
     private volatile boolean celciusDisplay, temperatureHighRange;
+
+    // The desired target temperature for each range, used by target-temperature-high/target-temperature-low (see
+    // DesiredTemperatureChannel). The unit's "set temperature" message has no range selector of its own - it always
+    // applies to whichever range is currently active - so a desired value for the range that is NOT active right
+    // now cannot be sent immediately. It is cached here instead and pushed once the unit reports a switch into
+    // that range (see TemperatureRange#handleUpdate). NaN means "not known yet" (nothing commanded and no status
+    // update decoded for that range since startup/reconnect). Same threading rationale as above, hence volatile.
+    private volatile double desiredHighTarget = Double.NaN, desiredLowTarget = Double.NaN;
 
     /**
      * Channels exposed by the Balboa Unit are handled by classes implementing the {@link BalboaChannel} interface.
@@ -1010,12 +1030,27 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
         public void handleUpdate(BalboaMessage message) {
             // Only status update messages are of interest
             if (message instanceof BalboaMessage.StatusUpdateMessage) {
+                BalboaMessage.StatusUpdateMessage status = (BalboaMessage.StatusUpdateMessage) message;
+                boolean newHighRange = status.getItem(ItemType.TEMPERATURE_RANGE, 0) != 0x00;
+                boolean rangeChanged = newHighRange != temperatureHighRange;
                 // Remember the state at handler level, since it is needed when setting the target temperature.
-                temperatureHighRange = ((BalboaMessage.StatusUpdateMessage) message).getItem(ItemType.TEMPERATURE_RANGE,
-                        0) != 0x00;
+                temperatureHighRange = newHighRange;
                 // Make the update
                 updateState(getChannelUID(),
                         temperatureHighRange ? StringType.valueOf("HIGH") : StringType.valueOf("LOW"));
+
+                // We just switched range. If a desired value was remembered for the range we switched into (see
+                // DesiredTemperatureChannel) and it does not match what the unit now reports for it - e.g. it was
+                // last set to something else in a previous session - push it once so the range behaves like an
+                // independent setpoint instead of whatever the unit happened to remember.
+                if (rangeChanged) {
+                    double desired = temperatureHighRange ? desiredHighTarget : desiredLowTarget;
+                    double rawState = status.getTemperature(true);
+                    if (!Double.isNaN(desired) && rawState >= 0 && Math.abs(desired - rawState) > 0.4) {
+                        protocol.sendMessage(new BalboaMessage.SetTemperatureMessage(desired, celciusDisplay,
+                                temperatureHighRange));
+                    }
+                }
             }
         }
     }
@@ -1351,6 +1386,190 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
             if (message instanceof BalboaMessage.FilterCyclesResponseMessage) {
                 BalboaMessage.FilterCyclesResponseMessage cycles = (BalboaMessage.FilterCyclesResponseMessage) message;
                 updateState(getChannelUID(), cycles.isFilter2Enabled() ? OpenClosedType.OPEN : OpenClosedType.CLOSED);
+            }
+        }
+    }
+
+    /**
+     * Plain Switch view of the Temperature Range (ON = HIGH, OFF = LOW). Lets a Switch item be linked directly to
+     * this channel, instead of needing a second item bound to the String-valued {@link TemperatureRange} channel
+     * through a profile that maps HIGH/LOW to ON/OFF - two items on one channel like that is what was causing
+     * spurious state bounces, which is also why this channel independently re-derives the active range from each
+     * message instead of relying on {@link BalboaHandler#temperatureHighRange} (channel iteration order across
+     * {@link ChannelMap} is not guaranteed, so that field is not necessarily fresh yet when this runs).
+     *
+     * @author Carsten Mogge
+     */
+    private class TemperatureRangeSwitch extends BaseBalboaChannel {
+        private boolean highRange;
+
+        protected TemperatureRangeSwitch() {
+            super("temperature-range-switch", "Temperature Range (Switch)", "temperature-range-switch", "Switch");
+        }
+
+        /**
+         * Set the temperature range to the desired state
+         */
+        @Override
+        public void handleCommand(Command command) {
+            if (command instanceof OnOffType) {
+                boolean wantHigh = command == OnOffType.ON;
+                if (wantHigh != highRange) {
+                    protocol.sendMessage(new BalboaMessage.ToggleMessage(ItemType.TEMPERATURE_RANGE, 0));
+                }
+            } else if (command instanceof RefreshType) {
+                // Status is sent continuously by the protocol, no action is needed.
+            } else {
+                logger.warn("Temperature Range switch channel received update of type {}",
+                        command.getClass().getSimpleName());
+            }
+        }
+
+        /**
+         * Updates the channel state from status update messages.
+         */
+        @Override
+        public void handleUpdate(BalboaMessage message) {
+            if (message instanceof BalboaMessage.StatusUpdateMessage) {
+                highRange = ((BalboaMessage.StatusUpdateMessage) message).getItem(ItemType.TEMPERATURE_RANGE,
+                        0) != 0x00;
+                updateState(getChannelUID(), highRange ? OnOffType.ON : OnOffType.OFF);
+            }
+        }
+    }
+
+    /**
+     * Plain Switch view of the Heat Mode (ON = READY, OFF = REST or READY_IN_REST). Lets a Switch item be linked
+     * directly to this channel instead of needing a second item bound to the String-valued {@link HeatMode} channel
+     * through a profile - see {@link TemperatureRangeSwitch} for why that pattern is best avoided.
+     *
+     * @author Carsten Mogge
+     */
+    private class HeatModeSwitch extends BaseBalboaChannel {
+        private byte rawState;
+
+        protected HeatModeSwitch() {
+            super("heat-mode-switch", "Heat Mode (Switch)", "heat-mode-switch", "Switch");
+        }
+
+        /**
+         * Set the item to the desired state (ON = READY, OFF = REST)
+         */
+        @Override
+        public void handleCommand(Command command) {
+            if (command instanceof OnOffType) {
+                boolean wantReady = command == OnOffType.ON;
+                boolean isReady = (rawState & 0x01) == 0;
+                if (wantReady != isReady) {
+                    protocol.sendMessage(new BalboaMessage.ToggleMessage(ItemType.HEAT_MODE, 0));
+                }
+            } else if (command instanceof RefreshType) {
+                // Status is sent continuously by the protocol, no action is needed.
+            } else {
+                logger.warn("Heat Mode switch channel received update of type {}",
+                        command.getClass().getSimpleName());
+            }
+        }
+
+        /**
+         * Updates the channel state from status update messages.
+         */
+        @Override
+        public void handleUpdate(BalboaMessage message) {
+            if (message instanceof BalboaMessage.StatusUpdateMessage) {
+                rawState = ((BalboaMessage.StatusUpdateMessage) message).getReadyState();
+                // READY (0x00) -> ON; REST (0x01) and READY_IN_REST (0x03) both have the low bit set -> OFF.
+                updateState(getChannelUID(), (rawState & 0x01) == 0 ? OnOffType.ON : OnOffType.OFF);
+            }
+        }
+    }
+
+    /**
+     * Handles a per-range desired target temperature (High or Low). The Balboa unit's "set temperature" message has
+     * no range selector of its own: reading {@link BalboaMessage.SetTemperatureMessage}, the outbound payload is a
+     * single byte carrying only the temperature value - the constructor's {@code highRange} parameter is used
+     * purely to clamp the value to that range's valid limits before sending, it is never put on the wire. So a "set
+     * temperature" command always lands on whichever range is currently active, both here and on the physical
+     * control panel - this is a genuine property of the unit, not a limitation of this binding.
+     * <p>
+     * What the binding CAN do is remember a separate desired value per range and apply the right one automatically:
+     * writing to the channel for the currently active range is sent immediately; writing to the channel for the
+     * other range is only remembered (in {@link BalboaHandler#desiredHighTarget}/{@code desiredLowTarget}) and
+     * pushed once the unit reports a switch into that range (see {@link TemperatureRange#handleUpdate}). This lets
+     * e.g. {@code target-temperature-high} always show and accept "the temperature I want when in High range",
+     * regardless of which range happens to be active right now - unlike the plain {@code target-temperature}
+     * channel, which always reflects the live target of whatever range is currently active.
+     *
+     * @author Carsten Mogge
+     */
+    private class DesiredTemperatureChannel extends BaseBalboaChannel {
+        private final boolean highRange;
+
+        /**
+         * Instantiate a desired temperature item.
+         *
+         * @param highRange whether this channel represents the High range's desired target (otherwise Low)
+         */
+        protected DesiredTemperatureChannel(boolean highRange, String id, String description) {
+            super(id, description, "target-temperature", "Number:Temperature");
+            this.highRange = highRange;
+        }
+
+        /**
+         * Remembers the desired value for this range, and sends it immediately if this range is currently active.
+         */
+        @Override
+        public void handleCommand(Command command) {
+            if (command instanceof QuantityType<?>) {
+                QuantityType<?> target = (QuantityType<?>) command;
+                target = celciusDisplay ? target.toUnit(SIUnits.CELSIUS) : target.toUnit(ImperialUnits.FAHRENHEIT);
+                if (target == null) {
+                    return;
+                }
+                double value = target.doubleValue();
+                if (highRange) {
+                    desiredHighTarget = value;
+                } else {
+                    desiredLowTarget = value;
+                }
+                if (highRange == temperatureHighRange) {
+                    protocol.sendMessage(new BalboaMessage.SetTemperatureMessage(value, celciusDisplay, highRange));
+                }
+            } else if (command instanceof RefreshType) {
+                // Status is sent continuously by the protocol, no action is needed.
+            } else {
+                logger.warn("{} received update of type {}", this.getChannelUID().getId(),
+                        command.getClass().getSimpleName());
+            }
+        }
+
+        /**
+         * Updates the channel state from status update messages. While this range is active, the broadcast target
+         * temperature is authoritative and also becomes the new desired value (so a fresh binding start picks up
+         * whatever is actually on the unit, instead of showing nothing until a value is explicitly commanded).
+         * While this range is not active, the channel keeps showing the last known desired value for it.
+         */
+        @Override
+        public void handleUpdate(BalboaMessage message) {
+            if (message instanceof BalboaMessage.StatusUpdateMessage) {
+                BalboaMessage.StatusUpdateMessage status = (BalboaMessage.StatusUpdateMessage) message;
+                boolean active = status.getItem(ItemType.TEMPERATURE_RANGE, 0) != 0x00;
+                double rawState = status.getTemperature(true);
+                // The unit reports negative numbers (0xFF, casts to -1.0) if the reading is unreliable - discard.
+                if (active == highRange && rawState >= 0) {
+                    if (highRange) {
+                        desiredHighTarget = rawState;
+                    } else {
+                        desiredLowTarget = rawState;
+                    }
+                }
+                double desired = highRange ? desiredHighTarget : desiredLowTarget;
+                if (!Double.isNaN(desired)) {
+                    QuantityType<Temperature> state = status.getCelciusDisplay()
+                            ? new QuantityType<Temperature>(desired, SIUnits.CELSIUS)
+                            : new QuantityType<Temperature>(desired, ImperialUnits.FAHRENHEIT);
+                    updateState(getChannelUID(), state);
+                }
             }
         }
     }
