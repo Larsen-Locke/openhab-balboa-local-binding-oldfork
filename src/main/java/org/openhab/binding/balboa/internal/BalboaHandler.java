@@ -12,6 +12,7 @@
  */
 package org.openhab.binding.balboa.internal;
 
+import java.time.ZonedDateTime;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,6 +29,7 @@ import org.openhab.binding.balboa.internal.BalboaMessage.PanelConfigurationRespo
 import org.openhab.binding.balboa.internal.BalboaMessage.SettingsRequestMessage.SettingsType;
 import org.openhab.binding.balboa.internal.BalboaProtocol.Handler;
 import org.openhab.binding.balboa.internal.BalboaProtocol.Status;
+import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.OpenClosedType;
 import org.openhab.core.library.types.QuantityType;
@@ -423,6 +425,7 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
             channels.addChannel(new TemperatureRange());
             channels.addChannel(new HeatMode());
             channels.addChannel(new FilterStatus());
+            channels.addChannel(new LastSeenChannel());
 
             // Plain Switch views of Temperature Range and Heat Mode, so a Switch item can be linked directly to
             // the channel without a second item plus a profile transforming the String channel to ON/OFF.
@@ -543,6 +546,12 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
             for (BalboaChannel channel : channels.values()) {
                 channel.handleUpdate(message);
             }
+        }
+
+        // Record that a message was received, regardless of its type - this is what last-seen reports.
+        BalboaChannel lastSeen = channels.get(new ChannelUID(thing.getUID(), "last-seen"));
+        if (lastSeen instanceof LastSeenChannel) {
+            ((LastSeenChannel) lastSeen).markSeen();
         }
     }
 
@@ -1294,6 +1303,46 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
                             .valueOf(String.format("%s at %02d:%02d", when, fault.getHour(), fault.getMinute())));
                 }
             }
+        }
+    }
+
+    /**
+     * Reports the timestamp of the most recently received message from the unit, regardless of its type. Updated
+     * centrally in {@link #onMessage(BalboaMessage)} rather than in {@link #handleUpdate(BalboaMessage)}, since it
+     * does not depend on the message content. Useful to detect a stale connection independently of the binding's
+     * own watchdog, e.g. via the Expire binding/profile.
+     *
+     * @author Carsten Mogge
+     */
+    private class LastSeenChannel extends BaseBalboaChannel {
+        protected LastSeenChannel() {
+            super("last-seen", "Last Seen", "last-seen", "DateTime");
+        }
+
+        /**
+         * The channel is read only, no action will be taken.
+         */
+        @Override
+        public void handleCommand(Command command) {
+            if (command instanceof RefreshType) {
+                // The state is pushed whenever a message is received, no action is needed.
+            } else {
+                logger.warn("Last seen channel received update of type {}", command.getClass().getSimpleName());
+            }
+        }
+
+        /**
+         * Not tied to any particular message type, see markSeen().
+         */
+        @Override
+        public void handleUpdate(BalboaMessage message) {
+        }
+
+        /**
+         * Records that a message was just received from the unit.
+         */
+        protected void markSeen() {
+            updateState(getChannelUID(), new DateTimeType(ZonedDateTime.now()));
         }
     }
 

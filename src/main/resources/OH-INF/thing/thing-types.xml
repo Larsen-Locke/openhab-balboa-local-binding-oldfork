@@ -267,4 +267,15 @@
 		<description>Whether the second filter cycle is enabled at all. Filter cycle 1 cannot be disabled.</description>
 		<state readOnly="true"/>
 	</channel-type>
+	<channel-type id="last-seen">
+		<item-type>DateTime</item-type>
+		<label>Last Seen</label>
+		<description>Timestamp of the last message received from the unit, of any kind. Useful to detect a stale
+			connection,
+			e.g. via the Expire binding/profile.</description>
+		<tags>
+			<tag>Timestamp</tag>
+		</tags>
+		<state readOnly="true"/>
+	</channel-type>
 </thing:thing-descriptions>
