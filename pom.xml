@@ -14,4 +14,28 @@
 
   <name>openHAB Add-ons :: Bundles :: Balboa Binding</name>
 
+  <build>
+    <finalName>${project.artifactId}-${project.version}-${local.build.timestamp}</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>local-build-timestamp</id>
+            <goals>
+              <goal>timestamp-property</goal>
+            </goals>
+            <phase>validate</phase>
+            <configuration>
+              <name>local.build.timestamp</name>
+              <pattern>yyyyMMdd-HHmmss</pattern>
+              <timeZone>Europe/Berlin</timeZone>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
 </project>
