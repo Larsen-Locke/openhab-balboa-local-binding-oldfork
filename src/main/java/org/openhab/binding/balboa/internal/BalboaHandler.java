@@ -1315,6 +1315,14 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
      * @author Carsten Mogge
      */
     private class LastSeenChannel extends BaseBalboaChannel {
+        // Minimum time between two state updates. The unit can report a new message several times a minute while
+        // active (see BalboaProtocol#babble()), but last-seen only needs to be accurate enough for staleness
+        // detection (e.g. via the Expire binding) - updating on every single message would just be event/persistence
+        // noise for no benefit.
+        private static final long MIN_INTERVAL_MILLIS = TimeUnit.SECONDS.toMillis(30);
+
+        private volatile long lastMarkedMillis = 0;
+
         protected LastSeenChannel() {
             super("last-seen", "Last Seen", "last-seen", "DateTime");
         }
@@ -1339,10 +1347,15 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
         }
 
         /**
-         * Records that a message was just received from the unit.
+         * Records that a message was just received from the unit. Throttled to MIN_INTERVAL_MILLIS - see its
+         * Javadoc.
          */
         protected void markSeen() {
-            updateState(getChannelUID(), new DateTimeType(ZonedDateTime.now()));
+            long now = System.currentTimeMillis();
+            if (now - lastMarkedMillis >= MIN_INTERVAL_MILLIS) {
+                lastMarkedMillis = now;
+                updateState(getChannelUID(), new DateTimeType(ZonedDateTime.now()));
+            }
         }
     }
 
