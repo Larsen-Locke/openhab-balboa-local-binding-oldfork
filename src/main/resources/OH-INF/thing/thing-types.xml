@@ -43,7 +43,8 @@
 		<label>Target Temperature</label>
 		<description>Target Temperature</description>
 		<tags>
-			<tag>TargetTemperature</tag>
+			<tag>Setpoint</tag>
+			<tag>Temperature</tag>
 		</tags>
 		<state step="0.5" pattern="%.1f %unit%"/>
 	</channel-type>
@@ -52,7 +53,8 @@
 		<label>Current Temperature</label>
 		<description>Current Temperature</description>
 		<tags>
-			<tag>CurrentTemperature</tag>
+			<tag>Measurement</tag>
+			<tag>Temperature</tag>
 		</tags>
 		<state pattern="%.1f %unit%" readOnly="true"/>
 	</channel-type>
@@ -79,7 +81,7 @@
 		<label>Jet Pump, one-speed</label>
 		<description>Jet Pump, one-speed</description>
 		<tags>
-			<tag>Switchable</tag>
+			<tag>Switch</tag>
 		</tags>
 	</channel-type>
 	<channel-type id="pump2">
@@ -87,7 +89,7 @@
 		<label>Jet Pump, two-speed</label>
 		<description>Jet Pump, two-speed</description>
 		<tags>
-			<tag>Switchable</tag>
+			<tag>Switch</tag>
 		</tags>
 		<state>
 			<options>
@@ -102,7 +104,7 @@
 		<label>Lights</label>
 		<description>Lights</description>
 		<tags>
-			<tag>Lighting</tag>
+			<tag>Light</tag>
 		</tags>
 	</channel-type>
 	<channel-type id="light2">
@@ -110,7 +112,7 @@
 		<label>Lights, two levels</label>
 		<description>Lights, two levels</description>
 		<tags>
-			<tag>Lighting</tag>
+			<tag>Light</tag>
 		</tags>
 		<state>
 			<options>
@@ -125,7 +127,7 @@
 		<label>AUX Channel</label>
 		<description>AUX Channel</description>
 		<tags>
-			<tag>Switchable</tag>
+			<tag>Switch</tag>
 		</tags>
 	</channel-type>
 	<channel-type id="blower1">
@@ -133,7 +135,7 @@
 		<label>Blower, one-speed</label>
 		<description>Blower, one-speed</description>
 		<tags>
-			<tag>Switchable</tag>
+			<tag>Switch</tag>
 		</tags>
 	</channel-type>
 	<channel-type id="blower2">
@@ -141,7 +143,7 @@
 		<label>Blower, 2-speed</label>
 		<description>Blower, 2-speed</description>
 		<tags>
-			<tag>Switchable</tag>
+			<tag>Switch</tag>
 		</tags>
 		<state>
 			<options>
@@ -156,7 +158,7 @@
 		<label>Mister, one-speed</label>
 		<description>Mister, one-speed</description>
 		<tags>
-			<tag>Switchable</tag>
+			<tag>Switch</tag>
 		</tags>
 	</channel-type>
 	<channel-type id="mister2">
@@ -164,7 +166,7 @@
 		<label>Mister, 2-speed</label>
 		<description>Mister, 2-speed</description>
 		<tags>
-			<tag>Switchable</tag>
+			<tag>Switch</tag>
 		</tags>
 		<state>
 			<options>
@@ -215,7 +217,7 @@
 			without a
 			second item and a profile.</description>
 		<tags>
-			<tag>Switchable</tag>
+			<tag>Switch</tag>
 		</tags>
 	</channel-type>
 	<channel-type id="heat-mode-switch">
@@ -225,7 +227,7 @@
 			directly
 			without a second item and a profile.</description>
 		<tags>
-			<tag>Switchable</tag>
+			<tag>Switch</tag>
 		</tags>
 	</channel-type>
 	<channel-type id="filter">
