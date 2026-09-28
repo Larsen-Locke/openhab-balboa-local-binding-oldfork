@@ -1,56 +1,239 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <parent>
-    <groupId>org.openhab.addons.bundles</groupId>
-    <artifactId>org.openhab.addons.reactor.bundles</artifactId>
-    <version>5.2.1</version>
-  </parent>
-
+  <groupId>org.openhab.binding</groupId>
   <artifactId>org.openhab.binding.balboa</artifactId>
+  <version>5.2.1.1</version>
+  <packaging>jar</packaging>
 
   <name>openHAB Add-ons :: Bundles :: Balboa Binding</name>
+  <description>openHAB binding for Balboa spa / hot tub control units (BWA Wi-Fi module 50350 and compatible) over the local network, without the Balboa cloud.</description>
 
   <properties>
-    <!-- The Maven version has to match the openHAB reactor's (checked by the static code analysis). A binding
-         fix released while openHAB is still on that version gets a fourth number here, used for the jar name and
-         the OSGi Bundle-Version (see the bnd-maven-plugin below). -->
-    <release.version>5.2.1.1</release.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+
+    <!-- Match this to the openHAB version you are running/building against (Pi5: openHAB 5.2.1) -->
+    <openhab.core.version>5.2.1</openhab.core.version>
+    <bnd.version>6.4.0</bnd.version>
+    <!-- openHAB's code checks, the same as for the official add-ons (openhab-addons) -->
+    <sat.version>0.18.0</sat.version>
+    <spotless.version>2.44.3</spotless.version>
+    <spotless.eclipse.version>4.25</spotless.eclipse.version>
+    <spotless.eclipse.wtp.version>4.21.0</spotless.eclipse.wtp.version>
+
+    <!-- Colon-free so it's safe in a Windows filename; used in <finalName> below so every local build
+         produces a distinctly-named jar under target/ instead of always overwriting the same file name. -->
+    <maven.build.timestamp.format>yyyyMMdd-HHmmss</maven.build.timestamp.format>
   </properties>
 
+  <!--
+    openHAB core bundles are published to the openHAB JFrog artifactory rather than Maven Central.
+  -->
+  <repositories>
+    <repository>
+      <id>openhab-artifactory-release</id>
+      <name>openHAB Release Repository</name>
+      <url>https://openhab.jfrog.io/artifactory/libs-release</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
+
+  <pluginRepositories>
+    <pluginRepository>
+      <id>openhab-artifactory-release</id>
+      <name>openHAB Release Repository</name>
+      <url>https://openhab.jfrog.io/artifactory/libs-release</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </pluginRepository>
+  </pluginRepositories>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.openhab.core.bundles</groupId>
+      <artifactId>org.openhab.core</artifactId>
+      <version>${openhab.core.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.openhab.core.bundles</groupId>
+      <artifactId>org.openhab.core.thing</artifactId>
+      <version>${openhab.core.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.openhab.core.bundles</groupId>
+      <artifactId>org.openhab.core.config.core</artifactId>
+      <version>${openhab.core.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.openhab.core.bundles</groupId>
+      <artifactId>org.openhab.core.config.discovery</artifactId>
+      <version>${openhab.core.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>javax.measure</groupId>
+      <artifactId>unit-api</artifactId>
+      <version>2.2</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.osgi</groupId>
+      <artifactId>org.osgi.service.component.annotations</artifactId>
+      <version>1.5.1</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.osgi</groupId>
+      <artifactId>org.osgi.service.metatype.annotations</artifactId>
+      <version>1.4.1</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>2.0.9</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jdt</groupId>
+      <artifactId>org.eclipse.jdt.annotation</artifactId>
+      <version>2.2.700</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.1</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
   <build>
-    <finalName>${project.artifactId}-${release.version}-${local.build.timestamp}</finalName>
+    <finalName>${project.artifactId}-${project.version}-${maven.build.timestamp}</finalName>
     <plugins>
       <plugin>
         <groupId>biz.aQute.bnd</groupId>
         <artifactId>bnd-maven-plugin</artifactId>
-        <configuration>
-          <bnd><![CDATA[${oh.bndDefaults}
-Bundle-Version: ${release.version}]]></bnd>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>${bnd.version}</version>
         <executions>
           <execution>
-            <id>local-build-timestamp</id>
             <goals>
-              <goal>timestamp-property</goal>
+              <goal>bnd-process</goal>
             </goals>
-            <phase>validate</phase>
-            <configuration>
-              <name>local.build.timestamp</name>
-              <pattern>yyyyMMdd-HHmmss</pattern>
-              <timeZone>Europe/Berlin</timeZone>
-            </configuration>
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <!-- Code formatting as required for openHAB add-ons; "mvn spotless:apply" fixes it -->
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${spotless.version}</version>
+        <configuration>
+          <java>
+            <eclipse>
+              <file>openhab_codestyle.xml</file>
+              <version>${spotless.eclipse.version}</version>
+            </eclipse>
+            <removeUnusedImports/>
+            <importOrder>
+              <file>openhab.importorder</file>
+            </importOrder>
+            <endWithNewline/>
+          </java>
+          <formats>
+            <format>
+              <includes>
+                <include>src/**/*.xml</include>
+              </includes>
+              <excludes>
+                <exclude>src/test/resources/**/*.xml</exclude>
+              </excludes>
+              <eclipseWtp>
+                <type>XML</type>
+                <files>
+                  <file>openhab_wst_xml_files.prefs</file>
+                </files>
+                <version>${spotless.eclipse.wtp.version}</version>
+              </eclipseWtp>
+              <trimTrailingWhitespace/>
+              <endWithNewline/>
+            </format>
+          </formats>
+        </configuration>
+        <dependencies>
+          <dependency>
+            <groupId>org.openhab.tools</groupId>
+            <artifactId>openhab-codestyle</artifactId>
+            <version>${sat.version}</version>
+          </dependency>
+        </dependencies>
+        <executions>
+          <execution>
+            <id>codestyle_check</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <phase>initialize</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <!-- Static code analysis (Checkstyle, PMD, SpotBugs) with openHAB's add-on rules -->
+        <groupId>org.openhab.tools.sat</groupId>
+        <artifactId>sat-plugin</artifactId>
+        <version>${sat.version}</version>
+        <configuration>
+          <!-- The rule parameters and general suppressions of openhab-addons, see sat/ -->
+          <checkstyleProperties>${project.basedir}/sat/checkstyle.properties</checkstyleProperties>
+          <checkstyleFilter>${project.basedir}/sat/checkstyle-suppressions.xml</checkstyleFilter>
+          <spotbugsExclude>${project.basedir}/sat/spotbugs-suppressions.xml</spotbugsExclude>
+        </configuration>
+        <executions>
+          <execution>
+            <id>sat-all</id>
+            <goals>
+              <goal>checkstyle</goal>
+              <goal>pmd</goal>
+              <goal>spotbugs</goal>
+              <goal>report</goal>
+            </goals>
+            <phase>verify</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.2</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.1</version>
+        <configuration>
+          <archive>
+            <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
+          </archive>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
-
 </project>

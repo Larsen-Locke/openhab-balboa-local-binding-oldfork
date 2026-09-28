@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suppressions PUBLIC "-//Puppy Crawl//DTD Suppressions 1.1//EN" "http://www.puppycrawl.com/dtds/suppressions_1_1.dtd">
+<suppressions>
+	<!-- The general suppressions of openhab-addons (tools/static-code-analysis/checkstyle/suppressions.xml),
+		without the ones for individual add-ons -->
+	<suppress files=".+[\\/]internal[\\/].+\.java" checks="JavadocType|JavadocVariable|JavadocMethod|MissingJavadocFilterCheck"/>
+	<suppress files=".+DTO\.java" checks="JavadocType|JavadocVariable|JavadocMethod|MissingJavadocFilterCheck|NullAnnotationsCheck"/>
+	<suppress files=".+[\\/]dto[\\/].+\.java" checks="JavadocType|JavadocVariable|JavadocMethod|MissingJavadocFilterCheck|NullAnnotationsCheck"/>
+	<suppress files=".+Impl\.java" checks="JavadocType|JavadocVariable|JavadocMethod|MissingJavadocFilterCheck"/>
+	<suppress files=".+[\\/]OH-INF[\\/].+\.xml" checks="OhInfXmlLabelCheck"/>
+	<suppress files=".+[\\/]src[\\/]test[\\/].+\.java" checks="NullAnnotationsCheck"/>
+	<suppress files=".+[\\/]pom\.xml" checks="OnlyTabIndentationCheck|OnlyTabIndentationInXmlFilesCheck"/>
+</suppressions>

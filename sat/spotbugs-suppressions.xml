@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The general exclusions of openhab-addons (tools/static-code-analysis/spotbugs/suppressions.xml), without the ones
+	for individual add-ons -->
+<FindBugsFilter>
+	<!-- Excludes all bugs with priority higher than 4 -->
+	<Match>
+		<Rank value="4"/>
+		<Not>
+			<Bug pattern="SLF4J_LOGGER_SHOULD_BE_NON_STATIC"/>
+		</Not>
+	</Match>
+	<!-- Reports usage of Throwable.getMessage() as argument to the SLF4J logger -->
+	<Match>
+		<Bug pattern="SLF4J_MANUALLY_PROVIDED_MESSAGE"/>
+	</Match>
+	<!-- Allow util classes to have static loggers -->
+	<Match>
+		<Class name="~.*Utils"/>
+		<Bug pattern="SLF4J_LOGGER_SHOULD_BE_NON_STATIC"/>
+	</Match>
+	<Match>
+		<Class name="~.*Util"/>
+		<Bug pattern="SLF4J_LOGGER_SHOULD_BE_NON_STATIC"/>
+	</Match>
+	<Match>
+		<Bug pattern="SLF4J_UNKNOWN_ARRAY"/>
+	</Match>
+	<Match>
+		<Bug pattern="SLF4J_SIGN_ONLY_FORMAT"/>
+	</Match>
+	<Match>
+		<!-- see https://github.com/spotbugs/spotbugs/issues/1992 -->
+		<Bug pattern="SA_LOCAL_SELF_COMPARISON"/>
+	</Match>
+</FindBugsFilter>

@@ -1,0 +1,12 @@
+Bundle-SymbolicName: ${project.artifactId}
+Bundle-Name: openHAB Add-ons :: Bundles :: Balboa Binding
+Bundle-Vendor: openHAB
+Bundle-Category: binding
+
+Private-Package:     org.openhab.binding.balboa.internal.*
+
+-dsannotations: *
+-metatypeannotations: *
+-sources: true
+# The license notices ship inside the jar, as with the official add-ons
+-includeresource: NOTICE

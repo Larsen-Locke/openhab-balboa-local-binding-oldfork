@@ -82,3 +82,17 @@ Number:Temperature  Spa_TargetTemp    "Target Temperature [%.1f %unit%]"  { chan
 Switch               Spa_Pump1         "Jet Pump 1"                        { channel="balboa:balboa-ip:mySpa:pump-1" }
 Switch               Spa_Light1        "Lights"                            { channel="balboa:balboa-ip:mySpa:light-1" }
 ```
+
+## Building
+
+```shell
+mvn clean verify
+```
+
+This is a standalone Maven project that uses `bnd-maven-plugin` to produce an OSGi bundle.
+openHAB core artifacts are resolved from the openHAB JFrog repository configured in `pom.xml`; adjust `openhab.core.version` there to the openHAB version you run.
+
+`mvn verify` also runs the checks openHAB applies to its official add-ons: Spotless for the code style (`mvn spotless:apply` fixes it) and the static code analysis (Checkstyle, PMD, SpotBugs), whose report ends up in `target/code-analysis/report.html`.
+`sat/` holds the rule parameters and general suppressions of openhab-addons.
+
+Drop the resulting `target/org.openhab.binding.balboa-*.jar` into your openHAB `addons/` folder and remove any previous `org.openhab.binding.balboa-*.jar` from it first.

@@ -1,0 +1,19 @@
+target/
+
+# Local build/release helper scripts and their output - not part of the add-on
+build-and-push.*
+build-loop.*
+create-release*.*
+create-releases.*
+diagnose-*.*
+*.log
+*.done
+Claude outputs/
+
+# IDE
+.settings/
+.project
+.classpath
+.idea/
+*.iml
+.vscode/
