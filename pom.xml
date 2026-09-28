@@ -16,9 +16,9 @@
 
   <properties>
     <!-- The Maven version has to match the openHAB reactor's (checked by the static code analysis). A binding
-         fix released while openHAB is still on that version gets a suffix here, in the jar name and in the OSGi
-         Bundle-Version (5.2.1-1 -> 5.2.1.1, see the bnd-maven-plugin below). -->
-    <release.version>5.2.1-1</release.version>
+         fix released while openHAB is still on that version gets a fourth number here, used for the jar name and
+         the OSGi Bundle-Version (see the bnd-maven-plugin below). -->
+    <release.version>5.2.1.1</release.version>
   </properties>
 
   <build>
@@ -29,7 +29,7 @@
         <artifactId>bnd-maven-plugin</artifactId>
         <configuration>
           <bnd><![CDATA[${oh.bndDefaults}
-Bundle-Version: ${replace;${release.version};-;.}]]></bnd>
+Bundle-Version: ${release.version}]]></bnd>
         </configuration>
       </plugin>
       <plugin>
