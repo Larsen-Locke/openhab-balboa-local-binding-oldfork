@@ -61,7 +61,9 @@ public class BalboaDiscoveryService extends AbstractDiscoveryService {
      * @throws IllegalArgumentException if the scan timeout is not valid
      */
     public BalboaDiscoveryService() throws IllegalArgumentException {
-        super(Set.of(BalboaBindingConstants.THING_TYPE_BALBOA_IP), SCAN_TIMEOUT_SECONDS);
+        // Only on a scan from the UI: there is no background discovery, and claiming it would show a background
+        // discovery setting in the UI that does nothing.
+        super(Set.of(BalboaBindingConstants.THING_TYPE_BALBOA_IP), SCAN_TIMEOUT_SECONDS, false);
     }
 
     @Override

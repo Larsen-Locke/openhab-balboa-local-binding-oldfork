@@ -14,9 +14,24 @@
 
   <name>openHAB Add-ons :: Bundles :: Balboa Binding</name>
 
+  <properties>
+    <!-- The Maven version has to match the openHAB reactor's (checked by the static code analysis). A binding
+         fix released while openHAB is still on that version gets a suffix here, in the jar name and in the OSGi
+         Bundle-Version (5.2.1-1 -> 5.2.1.1, see the bnd-maven-plugin below). -->
+    <release.version>5.2.1-1</release.version>
+  </properties>
+
   <build>
-    <finalName>${project.artifactId}-${project.version}-${local.build.timestamp}</finalName>
+    <finalName>${project.artifactId}-${release.version}-${local.build.timestamp}</finalName>
     <plugins>
+      <plugin>
+        <groupId>biz.aQute.bnd</groupId>
+        <artifactId>bnd-maven-plugin</artifactId>
+        <configuration>
+          <bnd><![CDATA[${oh.bndDefaults}
+Bundle-Version: ${replace;${release.version};-;.}]]></bnd>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
