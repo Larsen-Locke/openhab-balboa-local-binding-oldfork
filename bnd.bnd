@@ -1,9 +1,9 @@
 Bundle-SymbolicName: ${project.artifactId}
-Bundle-Name: openHAB Add-ons :: Bundles :: Balboa Binding
-Bundle-Vendor: openHAB
+Bundle-Name: Balboa Binding
+Bundle-Vendor: Larsen-Locke
 Bundle-Category: binding
 
-Private-Package:     org.openhab.binding.balboa.internal.*
+Private-Package:     io.github.larsenlocke.binding.balboa.internal.*
 
 -dsannotations: *
 -metatypeannotations: *

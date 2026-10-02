@@ -10,24 +10,19 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.balboa.internal;
+package io.github.larsenlocke.binding.balboa.internal;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.openhab.core.thing.ThingTypeUID;
 
 /**
- * The {@link BalboaBindingConstants} class defines common constants, which are
- * used across the whole binding.
+ * The {@link BalboaConfiguration} class contains fields mapping thing configuration parameters.
  *
  * @author Carl Önnheim - Initial contribution
  */
 @NonNullByDefault
-public class BalboaBindingConstants {
-
-    protected static final String BINDING_ID = "balboa";
-
-    public static final Integer DEFAULT_PORT = 4257;
-
-    // List of all Thing Type UIDs
-    public static final ThingTypeUID THING_TYPE_BALBOA_IP = new ThingTypeUID(BINDING_ID, "balboa-ip");
+public class BalboaConfiguration {
+    public String host = "";
+    public int port;
+    public int reconnectInterval;
+    public int pollingInterval;
 }

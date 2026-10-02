@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.balboa.internal;
+package io.github.larsenlocke.binding.balboa.internal;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -23,10 +23,11 @@ import java.util.LinkedList;
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.balboa.internal.BalboaMessage.PanelConfigurationResponseMessage;
-import org.openhab.binding.balboa.internal.BalboaMessage.SettingsRequestMessage.SettingsType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import io.github.larsenlocke.binding.balboa.internal.BalboaMessage.PanelConfigurationResponseMessage;
+import io.github.larsenlocke.binding.balboa.internal.BalboaMessage.SettingsRequestMessage.SettingsType;
 
 /**
  * The {@link BalboaProtocol} implements the communication protocol with Balboa control units.

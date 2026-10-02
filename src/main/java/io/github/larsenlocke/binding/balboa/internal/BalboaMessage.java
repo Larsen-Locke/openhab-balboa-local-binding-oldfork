@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.balboa.internal;
+package io.github.larsenlocke.binding.balboa.internal;
 
 import java.util.HashMap;
 import java.util.HexFormat;

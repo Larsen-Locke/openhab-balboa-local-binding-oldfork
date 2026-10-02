@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.balboa.internal.discovery;
+package io.github.larsenlocke.binding.balboa.internal.discovery;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.openhab.binding.balboa.internal.BalboaBindingConstants;
 import org.openhab.core.config.discovery.AbstractDiscoveryService;
 import org.openhab.core.config.discovery.DiscoveryResult;
 import org.openhab.core.config.discovery.DiscoveryResultBuilder;
@@ -32,6 +31,8 @@ import org.openhab.core.thing.ThingUID;
 import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import io.github.larsenlocke.binding.balboa.internal.BalboaBindingConstants;
 
 /**
  * The {@link BalboaDiscoveryService} discovers Balboa Wi-Fi modules on the local network.

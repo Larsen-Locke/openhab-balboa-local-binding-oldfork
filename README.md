@@ -95,4 +95,4 @@ openHAB core artifacts are resolved from the openHAB JFrog repository configured
 `mvn verify` also runs the checks openHAB applies to its official add-ons: Spotless for the code style (`mvn spotless:apply` fixes it) and the static code analysis (Checkstyle, PMD, SpotBugs), whose report ends up in `target/code-analysis/report.html`.
 `sat/` holds the rule parameters and general suppressions of openhab-addons.
 
-Drop the resulting `target/org.openhab.binding.balboa-*.jar` into your openHAB `addons/` folder and remove any previous `org.openhab.binding.balboa-*.jar` from it first.
+Drop the resulting `target/io.github.larsenlocke.binding.balboa-*.jar` into your openHAB `addons/` folder and remove any previous `io.github.larsenlocke.binding.balboa-*.jar` from it first.

@@ -10,9 +10,9 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.balboa.internal;
+package io.github.larsenlocke.binding.balboa.internal;
 
-import static org.openhab.binding.balboa.internal.BalboaBindingConstants.THING_TYPE_BALBOA_IP;
+import static io.github.larsenlocke.binding.balboa.internal.BalboaBindingConstants.THING_TYPE_BALBOA_IP;
 
 import java.util.Collections;
 import java.util.Set;

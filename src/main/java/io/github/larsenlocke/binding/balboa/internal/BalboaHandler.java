@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.balboa.internal;
+package io.github.larsenlocke.binding.balboa.internal;
 
 import java.time.ZonedDateTime;
 import java.util.Comparator;
@@ -24,11 +24,6 @@ import javax.measure.quantity.Temperature;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.balboa.internal.BalboaMessage.ItemType;
-import org.openhab.binding.balboa.internal.BalboaMessage.PanelConfigurationResponseMessage;
-import org.openhab.binding.balboa.internal.BalboaMessage.SettingsRequestMessage.SettingsType;
-import org.openhab.binding.balboa.internal.BalboaProtocol.Handler;
-import org.openhab.binding.balboa.internal.BalboaProtocol.Status;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.OpenClosedType;
@@ -49,6 +44,12 @@ import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import io.github.larsenlocke.binding.balboa.internal.BalboaMessage.ItemType;
+import io.github.larsenlocke.binding.balboa.internal.BalboaMessage.PanelConfigurationResponseMessage;
+import io.github.larsenlocke.binding.balboa.internal.BalboaMessage.SettingsRequestMessage.SettingsType;
+import io.github.larsenlocke.binding.balboa.internal.BalboaProtocol.Handler;
+import io.github.larsenlocke.binding.balboa.internal.BalboaProtocol.Status;
 
 /**
  * The {@link BalboaHandler} is responsible for handling Balboa things.
