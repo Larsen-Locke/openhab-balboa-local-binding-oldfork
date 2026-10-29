@@ -140,10 +140,15 @@ public class BalboaHandler extends BaseThingHandler implements Handler {
          * Performs the reconnect and marks the job as not pending
          */
         @Override
-        public synchronized void run() {
+        public void run() {
             // Clear the job first since a new reconnect may be scheduled by the connect call
-            job = null;
+            synchronized (this) {
+                job = null;
+            }
             logger.debug("Reconnecting...");
+            // Connect without holding this job's monitor: connect() takes the protocol's monitor, and the protocol
+            // calls back into schedule() (via onStateChange) while holding it. Holding both here in the opposite
+            // order would deadlock against a concurrent disconnect() (e.g. from the watchdog).
             connect();
         }
     }
